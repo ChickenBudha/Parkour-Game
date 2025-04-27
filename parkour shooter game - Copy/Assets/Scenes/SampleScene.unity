@@ -769,6 +769,7 @@ MonoBehaviour:
   playerHeight: 2
   maxSlopeAngle: 40
   airMultiplier: 0.6
+  groundDrag: 6
   wallrunning: 0
   force: {x: 0, y: 0, z: 0}
   state: 0

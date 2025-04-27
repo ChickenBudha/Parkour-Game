@@ -31,6 +31,7 @@ public class PlayerMovement : MonoBehaviour
     public float playerHeight = 2f;
     public float maxSlopeAngle;
     public float airMultiplier;
+    public float groundDrag;
 
     float verticalInput, horizontalInput;
     float mouseX, mouseY, xRot;
@@ -70,8 +71,8 @@ public class PlayerMovement : MonoBehaviour
     void Update()
     {
         //Inputs
-        horizontalInput = Input.GetAxis("Horizontal");
-        verticalInput = Input.GetAxis("Vertical");
+        horizontalInput = Input.GetAxisRaw("Horizontal");
+        verticalInput = Input.GetAxisRaw("Vertical");
         mouseX = Input.GetAxis("Mouse X") ;
         mouseY = Input.GetAxis("Mouse Y") ;
 
@@ -93,15 +94,24 @@ public class PlayerMovement : MonoBehaviour
     void FixedUpdate()
     {
         //Move Player
-        moveVector = transform.TransformDirection(horizontalInput, 0, verticalInput) * speed;
+        moveVector = transform.TransformDirection(horizontalInput, 0, verticalInput);
 
+        //On Ground
         if (grounded)
         {
-            rb.linearVelocity = new Vector3 (moveVector.x, rb.linearVelocity.y, moveVector.z) + force;
+            rb.AddForce(moveVector.normalized * speed * 10f, ForceMode.Force);
         }
+
+        //On Slope
         else if (OnSlope())
         {
             rb.linearVelocity = new Vector3 (SlopeDir().x, rb.linearVelocity.y, SlopeDir().z) + force;
+        }
+
+        //On Air
+        if (grounded)
+        {
+            rb.AddForce(moveVector.normalized * speed * 10f * airMultiplier, ForceMode.Force);
         }
 
         if (force != new Vector3 (0f,0f,0f))
@@ -129,6 +139,14 @@ public class PlayerMovement : MonoBehaviour
         {
             Jump();
         }
+
+        //Drag
+        if (grounded)
+        {
+            rb.linearDamping = groundDrag;
+        }
+
+        else rb.linearDamping = 0;
 
         //Speed Control
         Vector3 flatVel = new Vector3 (rb.linearVelocity.x, 0f, rb.linearVelocity.z);        
