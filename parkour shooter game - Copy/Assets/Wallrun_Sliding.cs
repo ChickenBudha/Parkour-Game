@@ -1,3 +1,5 @@
+using System.Drawing;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 public class Wallrun : MonoBehaviour
 {
@@ -8,7 +10,12 @@ public class Wallrun : MonoBehaviour
     public float walljumpUpForce, walljumpSideForce;
     private float wallrunExitTimer;
     public float wallrunExitTime;
-    public bool exitingWallrun = false;
+    [HideInInspector] public bool exitingWallrun = false;
+
+    public float slideDrag;
+    public float slideForce;
+    public float slopeSlideForce;
+    bool slideForceAdded = false;
 
     private float horizontalInput;
     private float verticalInput;
@@ -27,6 +34,8 @@ public class Wallrun : MonoBehaviour
     public PlayerMovement pm;
     public Rigidbody rb;
 
+    Vector3 slideDir;
+
 
     void Update()
     {
@@ -35,12 +44,17 @@ public class Wallrun : MonoBehaviour
 
     void FixedUpdate()
     {   
-        StateMachine(); 
+        StateMachineSlide(); 
+        StateMachineWallrun();
+
+        if (pm.sliding)
+        {
+            SlidingMovement();        
+        }
         
         if (pm.wallrunning)
         {
-            WallrunMovement();
-            
+            WallrunMovement();            
         }
     }
 
@@ -55,7 +69,7 @@ public class Wallrun : MonoBehaviour
         return !Physics.Raycast(transform.position, Vector3.down, minJumpHeight, whatIsGround);
     }
 
-    void StateMachine()
+    void StateMachineWallrun()
     {
         //Input
         horizontalInput = Input.GetAxis("Horizontal");    
@@ -128,11 +142,51 @@ public class Wallrun : MonoBehaviour
         wallrunExitTimer = wallrunExitTime;
 
         Vector3 wallNormal = wallRight ? rightWallHit.normal : leftWallHit.normal;
-        Vector3 forceToApply = transform.up * walljumpUpForce;
-        pm.force = wallNormal * walljumpSideForce;
-        Debug.DrawRay(transform.position, forceToApply, Color.red);
+        Vector3 forceToApply = transform.up * walljumpUpForce + wallNormal * walljumpSideForce;
 
         rb.linearVelocity = new Vector3 (rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce (forceToApply, ForceMode.Impulse);
     }
+
+    void StateMachineSlide()
+    {
+        //State 1 - Sliding
+        if (!AboveGround() && Input.GetKey(KeyCode.R))  
+        {
+            if (!pm.sliding)
+                //Start Slide
+                slideDir = player.forward * verticalInput + player.right * horizontalInput;
+                transform.localScale = new Vector3(transform.localScale.x, pm.crouchYScale, transform.localScale.z);
+                pm.sliding = true;                
+        }
+
+        else 
+        {
+            if (pm.sliding)
+                //Stop Slide
+                pm.sliding = false;
+                slideForceAdded = false;
+        }
+    }
+
+    void SlidingMovement()
+    {
+        
+        if (!pm.OnSlope() || rb.linearVelocity.y > 0)
+        {
+            rb.linearDamping = slideDrag;
+            if (!slideForceAdded)
+            {
+                rb.AddForce(slideDir.normalized * slideForce, ForceMode.Impulse);   
+                slideForceAdded = true;            
+            }
+        }
+
+        else {
+            Vector3 inputDir = player.forward * verticalInput + player.right * horizontalInput;
+            rb.AddForce(pm.SlopeDir(inputDir).normalized * slopeSlideForce, ForceMode.Force);
+        }
+    }
 }
+
+
